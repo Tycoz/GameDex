@@ -1,0 +1,6 @@
+{
+  "name": "GameDex",
+  "description": "Gestionnaire complet de collection de jeux vidéo façon Discogs : catalogue, état physique, valeur marchande, wishlist et statistiques.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

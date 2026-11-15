@@ -1,0 +1,119 @@
+{
+  "entities": {
+    "GameItem": {
+      "title": "GameItem",
+      "description": "Un jeu vidéo dans la collection ou la wishlist de l'utilisateur avec détails de version, état physique, valeur et historique d'achat.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "L'identifiant Firebase Auth du propriétaire du jeu."
+        },
+        "title": {
+          "type": "string",
+          "description": "Titre du jeu vidéo (ex: The Legend of Zelda: Ocarina of Time)."
+        },
+        "platform": {
+          "type": "string",
+          "description": "Plateforme ou console (ex: Nintendo 64, PlayStation 2, Super Nintendo, Switch, Mega Drive)."
+        },
+        "genre": {
+          "type": "string",
+          "description": "Genre du jeu (ex: Action-Aventure, RPG, Plateforme, Combat)."
+        },
+        "releaseYear": {
+          "type": "integer",
+          "description": "Année de sortie originale ou de l'édition."
+        },
+        "publisher": {
+          "type": "string",
+          "description": "Éditeur ou développeur (ex: Nintendo, Capcom, Square Soft)."
+        },
+        "format": {
+          "type": "string",
+          "description": "Format physique ou numérique : Cartouche, Disque, Coffret Collector, Dématérialisé."
+        },
+        "region": {
+          "type": "string",
+          "description": "Région de l'édition : PAL, NTSC-U, NTSC-J, Region Free."
+        },
+        "barcode": {
+          "type": "string",
+          "description": "Code-barres EAN / UPC ou numéro de catalogue éditeur."
+        },
+        "isWishlist": {
+          "type": "boolean",
+          "description": "Vrai si dans la wishlist (Wantlist façon Discogs), Faux si possédé dans la collection."
+        },
+        "boxCondition": {
+          "type": "string",
+          "description": "État de la boîte : Neuf sous blister, Comme neuf, Très bon état, Bon état, Moyen, Mauvais, Sans boîte."
+        },
+        "manualCondition": {
+          "type": "string",
+          "description": "État du livret / notice : Présent & Parfait, Très bon, Usé, Sans notice."
+        },
+        "mediaCondition": {
+          "type": "string",
+          "description": "État du support (disque/cartouche) : Parfait / Mint, Micro-rayures légères, Rayé mais lisible, HS."
+        },
+        "completeness": {
+          "type": "string",
+          "description": "Complétude : CIB (Complet en boîte), Boîte sans notice, Loose (Cartouche/disque seul), Neuf scellé."
+        },
+        "purchasePrice": {
+          "type": "number",
+          "description": "Prix payé lors de l'acquisition en euros."
+        },
+        "estimatedValue": {
+          "type": "number",
+          "description": "Cote marchande estimée actuelle en euros (Price charting)."
+        },
+        "purchaseDate": {
+          "type": "string",
+          "description": "Date d'achat ou d'ajout (format YYYY-MM-DD)."
+        },
+        "rating": {
+          "type": "integer",
+          "description": "Note personnelle de 0 à 5 étoiles."
+        },
+        "status": {
+          "type": "string",
+          "description": "Statut de jeu : Non commencé, En cours, Terminé, Terminé à 100%."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Notes personnelles, emplacement étagère, spécificités d'exemplaire."
+        },
+        "coverUrl": {
+          "type": "string",
+          "description": "URL de la jaquette ou visuel du jeu."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Horodatage de création généré par le serveur (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Horodatage de dernière mise à jour serveur (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "title",
+        "platform",
+        "isWishlist",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/games/{gameId}": {
+      "schema": "GameItem",
+      "description": "Collection de jeux vidéo et wishlist indexés par utilisateur."
+    }
+  }
+}

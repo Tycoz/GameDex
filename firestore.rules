@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default-deny catch-all safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidGame(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 150 &&
+             data.platform is string && data.platform.size() >= 1 && data.platform.size() <= 50 &&
+             data.isWishlist is bool &&
+             (!('genre' in data) || (data.genre is string && data.genre.size() <= 50)) &&
+             (!('releaseYear' in data) || data.releaseYear is int) &&
+             (!('publisher' in data) || (data.publisher is string && data.publisher.size() <= 100)) &&
+             (!('format' in data) || (data.format is string && data.format.size() <= 50)) &&
+             (!('region' in data) || (data.region is string && data.region.size() <= 30)) &&
+             (!('barcode' in data) || (data.barcode is string && data.barcode.size() <= 50)) &&
+             (!('boxCondition' in data) || (data.boxCondition is string && data.boxCondition.size() <= 50)) &&
+             (!('manualCondition' in data) || (data.manualCondition is string && data.manualCondition.size() <= 50)) &&
+             (!('mediaCondition' in data) || (data.mediaCondition is string && data.mediaCondition.size() <= 50)) &&
+             (!('completeness' in data) || (data.completeness is string && data.completeness.size() <= 50)) &&
+             (!('purchasePrice' in data) || (data.purchasePrice is number && data.purchasePrice >= 0)) &&
+             (!('estimatedValue' in data) || (data.estimatedValue is number && data.estimatedValue >= 0)) &&
+             (!('purchaseDate' in data) || (data.purchaseDate is string && data.purchaseDate.size() <= 30)) &&
+             (!('rating' in data) || (data.rating is int && data.rating >= 0 && data.rating <= 5)) &&
+             (!('status' in data) || (data.status is string && data.status.size() <= 30)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
+             (!('coverUrl' in data) || (data.coverUrl is string && data.coverUrl.size() <= 500));
+    }
+
+    match /users/{userId} {
+      allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+      match /games/{gameId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(gameId) &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'title', 'platform', 'isWishlist', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'title', 'platform', 'genre', 'releaseYear',
+                           'publisher', 'format', 'region', 'barcode', 'isWishlist',
+                           'boxCondition', 'manualCondition', 'mediaCondition',
+                           'completeness', 'purchasePrice', 'estimatedValue',
+                           'purchaseDate', 'rating', 'status', 'notes', 'coverUrl',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidGame(incoming());
+
+        allow update: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(gameId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidGame(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'title', 'platform', 'genre', 'releaseYear',
+                           'publisher', 'format', 'region', 'barcode', 'isWishlist',
+                           'boxCondition', 'manualCondition', 'mediaCondition',
+                           'completeness', 'purchasePrice', 'estimatedValue',
+                           'purchaseDate', 'rating', 'status', 'notes', 'coverUrl',
+                           'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId && isValidId(gameId);
+      }
+    }
+  }
+}
