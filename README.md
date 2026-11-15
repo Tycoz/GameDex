@@ -100,3 +100,31 @@ gradle :app:testDebugUnitTest
 # Exécuter l'analyse statique Android Lint
 gradle lintDebug
 ```
+
+---
+
+## Télécharger l'APK directement depuis GitHub
+
+Un workflow **GitHub Actions** (`.github/workflows/build-apk.yml`) compile automatiquement l'application, exécute les tests unitaires et publie le fichier **`GameDex.apk`** dans les **GitHub Releases** à chaque push sur `main`/`master`, à chaque tag `v*`, ou sur déclenchement manuel.
+
+### Lien de téléchargement direct
+
+Une fois le code poussé sur votre dépôt GitHub et le workflow exécuté :
+
+- **Téléchargement direct du dernier APK** :
+  ```text
+  https://github.com/<VOTRE_COMPTE>/<VOTRE_DEPOT>/releases/latest/download/GameDex.apk
+  ```
+- **Via l'interface GitHub** : ouvrez l'onglet **Releases** à droite du dépôt et cliquez directement sur **`GameDex.apk`** (aucune archive `.zip` à décompresser).
+- **Déclenchement manuel** : dans l'onglet **Actions** → **Build & Release APK** → **Run workflow**.
+
+> **Installation sur Android** : ouvrez le fichier `GameDex.apk` téléchargé sur votre smartphone et autorisez l'installation depuis des sources inconnues si Android le demande (Android 7.0 / API 24 minimum).
+
+### Secrets GitHub optionnels
+
+Le workflow fonctionne immédiatement sans configuration supplémentaire pour générer `GameDex.apk` (le keystore de debug est décodé automatiquement depuis `debug.keystore.base64`). Vous pouvez toutefois ajouter ces secrets dans **Settings → Secrets and variables → Actions** :
+
+- `GEMINI_API_KEY` : clé API injectée dans `.env` lors du build CI.
+- `GOOGLE_SERVICES_JSON_BASE64` : version encodée en Base64 de `app/google-services.json` (si vous choisissez de ne pas versionner ce fichier).
+- `RELEASE_KEYSTORE_BASE64`, `STORE_PASSWORD`, `KEY_PASSWORD` : si tous trois sont définis, le workflow génère et publie en plus un APK signé en mode release (`GameDex-release.apk`).
+
