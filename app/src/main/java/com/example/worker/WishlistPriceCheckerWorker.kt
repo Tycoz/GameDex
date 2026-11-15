@@ -36,7 +36,8 @@ class WishlistPriceCheckerWorker(
             return Result.success()
         }
 
-        if (Firebase.auth.currentUser == null) {
+        val currentUser = runCatching { Firebase.auth.currentUser }.getOrNull()
+        if (currentUser == null) {
             Log.d(TAG, "No authenticated user. Skipping wishlist price check.")
             return Result.success()
         }

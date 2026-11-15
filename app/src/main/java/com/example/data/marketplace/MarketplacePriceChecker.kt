@@ -4,10 +4,10 @@ import android.util.Log
 import com.example.data.model.DealFinding
 import com.example.data.model.GameItem
 import com.example.data.model.maxTargetPrice
+import com.example.data.network.NetworkClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
@@ -31,7 +31,7 @@ object MarketplacePriceChecker {
         Pattern.CASE_INSENSITIVE
     )
 
-    private val httpClient = OkHttpClient.Builder()
+    private val httpClient = NetworkClient.baseClient.newBuilder()
         .connectTimeout(12, TimeUnit.SECONDS)
         .readTimeout(12, TimeUnit.SECONDS)
         .followRedirects(true)

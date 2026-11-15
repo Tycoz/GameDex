@@ -2,6 +2,7 @@ package com.example.ui
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.ai.PriceChartingScraper
 import com.example.data.model.GameItem
@@ -178,7 +179,7 @@ class GameDexViewModel(private val repository: GameRepository) : ViewModel() {
 
         if (filtered.size <= 1) return filtered
         return when (sort) {
-            SortOrder.TITLE_ASC -> filtered.sortedBy { it.title.lowercase() }
+            SortOrder.TITLE_ASC -> filtered.sortedWith(TITLE_ASC_COMPARATOR)
             SortOrder.VALUE_DESC -> filtered.sortedByDescending { it.estimatedValue }
             SortOrder.RATING_DESC -> filtered.sortedByDescending { it.rating }
             SortOrder.YEAR_DESC -> filtered.sortedByDescending { it.releaseYear }
@@ -404,15 +405,33 @@ class GameDexViewModel(private val repository: GameRepository) : ViewModel() {
     private fun GameItem.withUpdatedPriceChartingValuation(newPrice: Double): GameItem {
         val tag = "[Cote PriceCharting: ${String.format(java.util.Locale.FRANCE, "%.2f", newPrice)} €]"
         val updatedNotes = if (PRICE_CHARTING_NOTE_REGEX.containsMatchIn(notes)) {
-            notes.replace(PRICE_CHARTING_NOTE_REGEX, tag)
+            notes.replace(PRICE_CHARTING_NOTE_REGEX, tag).trim()
         } else {
-            "${notes.trim()}\n$tag".trim()
-        }
+            val trimmed = notes.trim()
+            if (trimmed.isEmpty()) {
+                tag
+            } else {
+                val maxBaseLen = (GameItem.MAX_NOTES_LENGTH - tag.length - 1).coerceAtLeast(0)
+                val base = trimmed.take(maxBaseLen).trimEnd()
+                if (base.isEmpty()) tag else "$base\n$tag"
+            }
+        }.take(GameItem.MAX_NOTES_LENGTH)
         return copy(estimatedValue = newPrice, notes = updatedNotes)
     }
 
     companion object {
         private val PRICE_CHARTING_NOTE_REGEX = Regex("\\[Cote PriceCharting[^\\]]*\\]")
+        private val TITLE_ASC_COMPARATOR: Comparator<GameItem> =
+            compareBy(String.CASE_INSENSITIVE_ORDER) { it.title }
+
+        fun factory(repository: GameRepository): ViewModelProvider.Factory {
+            return object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    return GameDexViewModel(repository) as T
+                }
+            }
+        }
     }
 
     fun setSelectionMode(enabled: Boolean) {

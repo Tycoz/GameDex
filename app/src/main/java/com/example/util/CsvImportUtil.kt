@@ -2,6 +2,7 @@ package com.example.util
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import com.example.data.model.GameItem
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -19,6 +20,26 @@ data class CsvParseResult(
 
 object CsvImportUtil {
 
+    private const val TAG = "CsvImportUtil"
+
+    private val COMBINING_MARKS_REGEX = "\\p{InCombiningDiacriticalMarks}+".toRegex()
+    private val NON_ALNUM_REGEX = "[^a-z0-9]".toRegex()
+    private val WHITESPACE_REGEX = "\\s+".toRegex()
+
+    private val TITLE_HEADER_REGEX = "^(titre|title|nom|name|game|jeu|game title|game name|nom du jeu|nom de jeu)$".toRegex()
+    private val PLATFORM_HEADER_REGEX = "^(plateforme|platform|console|system|systeme|machine|support de jeu|support)$".toRegex()
+    private val GENRE_HEADER_REGEX = "^(genre|categorie|category|type de jeu)$".toRegex()
+    private val YEAR_HEADER_REGEX = "^(annee|annee de sortie|year|release year|date de sortie)$".toRegex()
+    private val PUBLISHER_HEADER_REGEX = "^(editeur|publisher|developpeur|developer|studio)$".toRegex()
+    private val FORMAT_HEADER_REGEX = "^(format|type de support|media format)$".toRegex()
+    private val REGION_HEADER_REGEX = "^(region|zone|pays|country)$".toRegex()
+    private val COMPLETENESS_HEADER_REGEX = "^(completude|completeness|packaging|cib|contenu|pack)$".toRegex()
+    private val GENERAL_CONDITION_HEADER_REGEX = "^(etat|condition|general condition|etat general|condition globale)$".toRegex()
+    private val STATUS_HEADER_REGEX = "^(statut|status|progression|etat de jeu)$".toRegex()
+    private val NOTES_HEADER_REGEX = "^(notes|comments|remarques|details|memo)$".toRegex()
+    private val RATING_HEADER_REGEX = "^(note|rating|score|evaluation|eval)$".toRegex()
+    private val PRICE_HEADER_REGEX = "^(prix|price|cout|cost|achat)$".toRegex()
+
     /**
      * Reads and parses a CSV file from an Android content Uri.
      */
@@ -31,7 +52,7 @@ object CsvImportUtil {
                 }
             } ?: CsvParseResult(emptyList(), 0, 0, ',', fileName, listOf("Impossible d'ouvrir le fichier."))
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Failed to parse CSV URI", e)
             CsvParseResult(emptyList(), 0, 0, ',', "Erreur", listOf(e.localizedMessage ?: "Erreur de lecture"))
         }
     }
@@ -55,14 +76,15 @@ object CsvImportUtil {
 
         // Clean UTF-8 BOM if present
         val cleanContent = rawContent.removePrefix("\uFEFF")
+        val delimiter = detectDelimiter(cleanContent)
 
         // Parse records (respecting quotes that span across newlines)
-        val records = parseCsvRecords(cleanContent)
+        val records = parseCsvRecords(cleanContent, delimiter)
         if (records.isEmpty()) {
             return CsvParseResult(emptyList(), 0, 0, ',', fileName, listOf("Aucune donnée trouvée."))
         }
 
-        return parseRecordsToResult(records, fileName, detectDelimiter(cleanContent))
+        return parseRecordsToResult(records, fileName, delimiter)
     }
 
     /**
@@ -180,8 +202,7 @@ object CsvImportUtil {
      * Parses CSV text into records and fields, correctly handling quoted values with embedded newlines,
      * commas, semicolons, and doubled quotes.
      */
-    fun parseCsvRecords(content: String): List<List<String>> {
-        val delimiter = detectDelimiter(content)
+    fun parseCsvRecords(content: String, delimiter: Char = detectDelimiter(content)): List<List<String>> {
         val records = mutableListOf<List<String>>()
         val currentField = StringBuilder()
         val currentRecord = mutableListOf<String>()
@@ -246,13 +267,34 @@ object CsvImportUtil {
     }
 
     /**
-     * Detects delimiter by counting occurrences on the first non-empty line.
+     * Detects delimiter by counting occurrences on the first non-empty line without splitting the full file.
      */
     fun detectDelimiter(content: String): Char {
-        val firstLine = content.lines().firstOrNull { it.isNotBlank() } ?: return ','
-        val commaCount = firstLine.count { it == ',' }
-        val semiCount = firstLine.count { it == ';' }
-        val tabCount = firstLine.count { it == '\t' }
+        var lineStart = 0
+        var firstLine: String? = null
+        while (lineStart < content.length) {
+            val nl = content.indexOf('\n', lineStart)
+            val lineEnd = if (nl == -1) content.length else nl
+            val candidate = content.substring(lineStart, lineEnd).trimEnd('\r')
+            if (candidate.isNotBlank()) {
+                firstLine = candidate
+                break
+            }
+            if (nl == -1) break
+            lineStart = nl + 1
+        }
+        if (firstLine == null) return ','
+
+        var commaCount = 0
+        var semiCount = 0
+        var tabCount = 0
+        for (ch in firstLine) {
+            when (ch) {
+                ',' -> commaCount++
+                ';' -> semiCount++
+                '\t' -> tabCount++
+            }
+        }
 
         return when {
             semiCount > commaCount && semiCount > tabCount -> ';'
@@ -270,11 +312,11 @@ object CsvImportUtil {
 
     private fun normalize(str: String): String {
         val n = Normalizer.normalize(str, Normalizer.Form.NFD)
-        return n.replace("\\p{InCombiningDiacriticalMarks}+".toRegex(), "")
+        return n.replace(COMBINING_MARKS_REGEX, "")
             .lowercase(Locale.ROOT)
-            .replace("[^a-z0-9]".toRegex(), " ")
+            .replace(NON_ALNUM_REGEX, " ")
             .trim()
-            .replace("\\s+".toRegex(), " ")
+            .replace(WHITESPACE_REGEX, " ")
     }
 
     private fun buildHeaderMap(headerRow: List<String>): Map<FieldType, Int> {
@@ -283,32 +325,32 @@ object CsvImportUtil {
         headerRow.forEachIndexed { index, rawHeader ->
             val norm = normalize(rawHeader)
             when {
-                norm.matches("^(titre|title|nom|name|game|jeu|game title|game name|nom du jeu|nom de jeu)$".toRegex()) ||
+                norm.matches(TITLE_HEADER_REGEX) ||
                         (norm.contains("titre") && !norm.contains("sous")) -> {
                     if (!map.containsKey(FieldType.TITLE)) map[FieldType.TITLE] = index
                 }
-                norm.matches("^(plateforme|platform|console|system|systeme|machine|support de jeu|support)$".toRegex()) ||
+                norm.matches(PLATFORM_HEADER_REGEX) ||
                         norm.contains("plateforme") || norm.contains("console") -> {
                     if (!map.containsKey(FieldType.PLATFORM)) map[FieldType.PLATFORM] = index
                 }
-                norm.matches("^(genre|categorie|category|type de jeu)$".toRegex()) -> {
+                norm.matches(GENRE_HEADER_REGEX) -> {
                     if (!map.containsKey(FieldType.GENRE)) map[FieldType.GENRE] = index
                 }
-                norm.matches("^(annee|annee de sortie|year|release year|date de sortie)$".toRegex()) ||
+                norm.matches(YEAR_HEADER_REGEX) ||
                         norm.contains("annee") -> {
                     if (!map.containsKey(FieldType.RELEASE_YEAR)) map[FieldType.RELEASE_YEAR] = index
                 }
-                norm.matches("^(editeur|publisher|developpeur|developer|studio)$".toRegex()) ||
+                norm.matches(PUBLISHER_HEADER_REGEX) ||
                         norm.contains("editeur") -> {
                     if (!map.containsKey(FieldType.PUBLISHER)) map[FieldType.PUBLISHER] = index
                 }
-                norm.matches("^(format|type de support|media format)$".toRegex()) -> {
+                norm.matches(FORMAT_HEADER_REGEX) -> {
                     if (!map.containsKey(FieldType.FORMAT)) map[FieldType.FORMAT] = index
                 }
-                norm.matches("^(region|zone|pays|country)$".toRegex()) -> {
+                norm.matches(REGION_HEADER_REGEX) -> {
                     if (!map.containsKey(FieldType.REGION)) map[FieldType.REGION] = index
                 }
-                norm.matches("^(completude|completeness|packaging|cib|contenu|pack)$".toRegex()) ||
+                norm.matches(COMPLETENESS_HEADER_REGEX) ||
                         norm.contains("completude") -> {
                     if (!map.containsKey(FieldType.COMPLETENESS)) map[FieldType.COMPLETENESS] = index
                 }
@@ -321,22 +363,22 @@ object CsvImportUtil {
                 norm.contains("etat support") || norm.contains("media condition") || norm.contains("etat disque") -> {
                     if (!map.containsKey(FieldType.MEDIA_CONDITION)) map[FieldType.MEDIA_CONDITION] = index
                 }
-                norm.matches("^(etat|condition|general condition|etat general|condition globale)$".toRegex()) -> {
+                norm.matches(GENERAL_CONDITION_HEADER_REGEX) -> {
                     if (!map.containsKey(FieldType.BOX_CONDITION)) map[FieldType.BOX_CONDITION] = index
                 }
-                norm.matches("^(statut|status|progression|etat de jeu)$".toRegex()) -> {
+                norm.matches(STATUS_HEADER_REGEX) -> {
                     if (!map.containsKey(FieldType.STATUS)) map[FieldType.STATUS] = index
                 }
                 norm.contains("notes") || norm.contains("remarque") || norm.contains("commentaire") ||
-                        norm.contains("description") || norm.matches("^(notes|comments|remarques|details|memo)$".toRegex()) -> {
+                        norm.contains("description") || norm.matches(NOTES_HEADER_REGEX) -> {
                     if (!map.containsKey(FieldType.NOTES)) map[FieldType.NOTES] = index
                 }
-                norm.matches("^(note|rating|score|evaluation|eval)$".toRegex()) ||
+                norm.matches(RATING_HEADER_REGEX) ||
                         norm.startsWith("note ") || norm.startsWith("note/") ||
                         norm.contains("rating") || norm.contains("note 5") -> {
                     if (!map.containsKey(FieldType.RATING)) map[FieldType.RATING] = index
                 }
-                norm.matches("^(prix|price|cout|cost|achat)$".toRegex()) ||
+                norm.matches(PRICE_HEADER_REGEX) ||
                         norm.contains("prix d achat") || norm.contains("prix achat") || norm.contains("purchase price") ||
                         ((norm.contains("prix") || norm.contains("price")) && !norm.contains("estime") && !norm.contains("estimate")) -> {
                     if (!map.containsKey(FieldType.PURCHASE_PRICE)) map[FieldType.PURCHASE_PRICE] = index
@@ -380,7 +422,7 @@ object CsvImportUtil {
         val clean = str.replace("€", "").replace("$", "").replace("£", "")
             .replace("\u00A0", "")
             .replace("\u202F", "")
-            .replace("\\s+".toRegex(), "")
+            .replace(WHITESPACE_REGEX, "")
             .replace(",", ".")
             .trim()
         return clean.toDoubleOrNull() ?: 0.0
@@ -397,14 +439,17 @@ object CsvImportUtil {
     private fun getFileName(context: Context, uri: Uri): String? {
         var name: String? = null
         if (uri.scheme == "content") {
-            val cursor = context.contentResolver.query(uri, null, null, null, null)
-            cursor?.use {
-                if (it.moveToFirst()) {
-                    val index = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                    if (index >= 0) {
-                        name = it.getString(index)
+            try {
+                context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                        if (index >= 0) {
+                            name = cursor.getString(index)
+                        }
                     }
                 }
+            } catch (e: Exception) {
+                Log.w(TAG, "Unable to query file display name", e)
             }
         }
         return name ?: uri.lastPathSegment

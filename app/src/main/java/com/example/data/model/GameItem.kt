@@ -34,58 +34,93 @@ data class GameItem(
     @ServerTimestamp val updatedAt: Timestamp? = null
 ) {
     fun toCreateMap(userId: String): Map<String, Any> {
-        val map = mutableMapOf<String, Any>(
+        val sanitized = sanitizedForFirestore()
+        return mutableMapOf<String, Any>(
             "userId" to userId,
-            "title" to title.trim(),
-            "platform" to platform.trim(),
-            "genre" to genre.trim(),
-            "releaseYear" to releaseYear,
-            "publisher" to publisher.trim(),
-            "format" to format.trim(),
-            "region" to region.trim(),
-            "barcode" to barcode.trim(),
-            "isWishlist" to isWishlist,
-            "boxCondition" to boxCondition.trim(),
-            "manualCondition" to manualCondition.trim(),
-            "mediaCondition" to mediaCondition.trim(),
-            "completeness" to completeness.trim(),
-            "purchasePrice" to purchasePrice,
-            "estimatedValue" to estimatedValue,
-            "purchaseDate" to purchaseDate.trim(),
-            "rating" to rating.coerceIn(0, 5),
-            "status" to status.trim(),
-            "notes" to notes.trim(),
-            "coverUrl" to coverUrl.trim(),
+            "title" to sanitized.title,
+            "platform" to sanitized.platform,
+            "genre" to sanitized.genre,
+            "releaseYear" to sanitized.releaseYear,
+            "publisher" to sanitized.publisher,
+            "format" to sanitized.format,
+            "region" to sanitized.region,
+            "barcode" to sanitized.barcode,
+            "isWishlist" to sanitized.isWishlist,
+            "boxCondition" to sanitized.boxCondition,
+            "manualCondition" to sanitized.manualCondition,
+            "mediaCondition" to sanitized.mediaCondition,
+            "completeness" to sanitized.completeness,
+            "purchasePrice" to sanitized.purchasePrice,
+            "estimatedValue" to sanitized.estimatedValue,
+            "purchaseDate" to sanitized.purchaseDate,
+            "rating" to sanitized.rating,
+            "status" to sanitized.status,
+            "notes" to sanitized.notes,
+            "coverUrl" to sanitized.coverUrl,
             "createdAt" to FieldValue.serverTimestamp(),
             "updatedAt" to FieldValue.serverTimestamp()
         )
-        return map
     }
 
     fun toUpdateMap(): Map<String, Any> {
-        val map = mutableMapOf<String, Any>(
-            "title" to title.trim(),
-            "platform" to platform.trim(),
-            "genre" to genre.trim(),
-            "releaseYear" to releaseYear,
-            "publisher" to publisher.trim(),
-            "format" to format.trim(),
-            "region" to region.trim(),
-            "barcode" to barcode.trim(),
-            "isWishlist" to isWishlist,
-            "boxCondition" to boxCondition.trim(),
-            "manualCondition" to manualCondition.trim(),
-            "mediaCondition" to mediaCondition.trim(),
-            "completeness" to completeness.trim(),
-            "purchasePrice" to purchasePrice,
-            "estimatedValue" to estimatedValue,
-            "purchaseDate" to purchaseDate.trim(),
-            "rating" to rating.coerceIn(0, 5),
-            "status" to status.trim(),
-            "notes" to notes.trim(),
-            "coverUrl" to coverUrl.trim(),
+        val sanitized = sanitizedForFirestore()
+        return mutableMapOf<String, Any>(
+            "title" to sanitized.title,
+            "platform" to sanitized.platform,
+            "genre" to sanitized.genre,
+            "releaseYear" to sanitized.releaseYear,
+            "publisher" to sanitized.publisher,
+            "format" to sanitized.format,
+            "region" to sanitized.region,
+            "barcode" to sanitized.barcode,
+            "isWishlist" to sanitized.isWishlist,
+            "boxCondition" to sanitized.boxCondition,
+            "manualCondition" to sanitized.manualCondition,
+            "mediaCondition" to sanitized.mediaCondition,
+            "completeness" to sanitized.completeness,
+            "purchasePrice" to sanitized.purchasePrice,
+            "estimatedValue" to sanitized.estimatedValue,
+            "purchaseDate" to sanitized.purchaseDate,
+            "rating" to sanitized.rating,
+            "status" to sanitized.status,
+            "notes" to sanitized.notes,
+            "coverUrl" to sanitized.coverUrl,
             "updatedAt" to FieldValue.serverTimestamp()
         )
-        return map
+    }
+
+    fun sanitizedForFirestore(): GameItem {
+        val safePurchase = if (purchasePrice.isFinite()) purchasePrice.coerceAtLeast(0.0) else 0.0
+        val safeEstimated = if (estimatedValue.isFinite()) estimatedValue.coerceAtLeast(0.0) else 0.0
+        return copy(
+            title = title.trim().ifBlank { "Jeu sans titre" }.take(MAX_TITLE_LENGTH),
+            platform = platform.trim().ifBlank { "Autre" }.take(MAX_PLATFORM_LENGTH),
+            genre = genre.trim().take(MAX_SHORT_TEXT_LENGTH),
+            publisher = publisher.trim().take(MAX_PUBLISHER_LENGTH),
+            format = format.trim().take(MAX_SHORT_TEXT_LENGTH),
+            region = region.trim().take(MAX_TINY_TEXT_LENGTH),
+            barcode = barcode.trim().take(MAX_SHORT_TEXT_LENGTH),
+            boxCondition = boxCondition.trim().take(MAX_SHORT_TEXT_LENGTH),
+            manualCondition = manualCondition.trim().take(MAX_SHORT_TEXT_LENGTH),
+            mediaCondition = mediaCondition.trim().take(MAX_SHORT_TEXT_LENGTH),
+            completeness = completeness.trim().take(MAX_SHORT_TEXT_LENGTH),
+            purchasePrice = safePurchase,
+            estimatedValue = safeEstimated,
+            purchaseDate = purchaseDate.trim().take(MAX_TINY_TEXT_LENGTH),
+            rating = rating.coerceIn(0, 5),
+            status = status.trim().take(MAX_TINY_TEXT_LENGTH),
+            notes = notes.trim().take(MAX_NOTES_LENGTH),
+            coverUrl = coverUrl.trim().take(MAX_COVER_URL_LENGTH)
+        )
+    }
+
+    companion object {
+        const val MAX_TITLE_LENGTH = 150
+        const val MAX_PLATFORM_LENGTH = 50
+        const val MAX_PUBLISHER_LENGTH = 100
+        const val MAX_SHORT_TEXT_LENGTH = 50
+        const val MAX_TINY_TEXT_LENGTH = 30
+        const val MAX_NOTES_LENGTH = 1000
+        const val MAX_COVER_URL_LENGTH = 500
     }
 }

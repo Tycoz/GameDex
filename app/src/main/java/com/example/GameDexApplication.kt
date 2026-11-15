@@ -5,13 +5,13 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
-import okhttp3.OkHttpClient
+import com.example.data.network.NetworkClient
 import java.util.concurrent.TimeUnit
 
 class GameDexApplication : Application(), ImageLoaderFactory {
 
     override fun newImageLoader(): ImageLoader {
-        val okHttpClient = OkHttpClient.Builder()
+        val okHttpClient = NetworkClient.baseClient.newBuilder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .addInterceptor { chain ->

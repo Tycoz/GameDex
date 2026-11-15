@@ -20,20 +20,33 @@ class PriceChartingPreferenceManager(context: Context) {
         private const val KEY_LAST_TOTAL_VALUE = "last_total_value_eur"
         private const val KEY_LAST_VALUE_DIFF = "last_value_diff_eur"
 
+        private val DATE_FORMATTER = object : ThreadLocal<SimpleDateFormat>() {
+            override fun initialValue(): SimpleDateFormat =
+                SimpleDateFormat("d MMMM yyyy 'à' HH:mm", Locale.FRENCH)
+        }
+
+        private fun prefs(context: Context): SharedPreferences =
+            context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
         fun isMonthlyUpdateEnabled(context: Context): Boolean =
-            PriceChartingPreferenceManager(context).isMonthlyUpdateEnabled()
+            prefs(context).getBoolean(KEY_MONTHLY_UPDATE_ENABLED, true)
 
         fun setMonthlyUpdateEnabled(context: Context, enabled: Boolean) =
-            PriceChartingPreferenceManager(context).setMonthlyUpdateEnabled(enabled)
+            prefs(context).edit { putBoolean(KEY_MONTHLY_UPDATE_ENABLED, enabled) }
 
         fun getLastUpdatedGamesCount(context: Context): Int =
-            PriceChartingPreferenceManager(context).getLastGamesUpdatedCount()
+            prefs(context).getInt(KEY_LAST_GAMES_COUNT, 0)
 
         fun getLastUpdateValueDifference(context: Context): Double =
-            PriceChartingPreferenceManager(context).getLastValuationDifferenceEur()
+            prefs(context).getFloat(KEY_LAST_VALUE_DIFF, 0f).toDouble()
 
-        fun getLastUpdateFormatted(context: Context): String =
-            PriceChartingPreferenceManager(context).getFormattedLastUpdate()
+        fun getLastUpdateFormatted(context: Context): String {
+            val ts = prefs(context).getLong(KEY_LAST_UPDATE_TIMESTAMP, 0L)
+            if (ts <= 0L) return "Aucune actualisation encore"
+            val formatter = DATE_FORMATTER.get()
+                ?: SimpleDateFormat("d MMMM yyyy 'à' HH:mm", Locale.FRENCH)
+            return formatter.format(Date(ts))
+        }
 
         fun recordSuccessfulUpdate(
             context: Context,
@@ -42,11 +55,12 @@ class PriceChartingPreferenceManager(context: Context) {
             newValueTotal: Double
         ) {
             val diff = newValueTotal - oldValueTotal
-            PriceChartingPreferenceManager(context).recordSuccessfulUpdate(
-                gamesUpdatedCount = gamesUpdated,
-                totalValuationEur = newValueTotal,
-                valueDiffEur = diff
-            )
+            prefs(context).edit {
+                putLong(KEY_LAST_UPDATE_TIMESTAMP, System.currentTimeMillis())
+                putInt(KEY_LAST_GAMES_COUNT, gamesUpdated)
+                putFloat(KEY_LAST_TOTAL_VALUE, newValueTotal.toFloat())
+                putFloat(KEY_LAST_VALUE_DIFF, diff.toFloat())
+            }
         }
     }
 
@@ -86,7 +100,8 @@ class PriceChartingPreferenceManager(context: Context) {
     fun getFormattedLastUpdate(): String {
         val ts = getLastUpdateTimestamp()
         if (ts <= 0L) return "Aucune actualisation encore"
-        val sdf = SimpleDateFormat("d MMMM yyyy 'à' HH:mm", Locale.FRENCH)
-        return sdf.format(Date(ts))
+        val formatter = DATE_FORMATTER.get()
+            ?: SimpleDateFormat("d MMMM yyyy 'à' HH:mm", Locale.FRENCH)
+        return formatter.format(Date(ts))
     }
 }

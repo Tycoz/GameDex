@@ -60,6 +60,39 @@ jobs:
             printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | tr -d '\r\n ' | base64 -d > app/google-services.json
           fi
 
+          if [ -f app/google-services.json ]; then
+            python3 - <<'PY'
+          import json
+          import sys
+
+          expected_pkg = "com.aistudio.gamedex.vzqpw"
+          with open("app/google-services.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+
+          clients = data.get("client", [])
+          matching = [
+              c for c in clients
+              if c.get("client_info", {}).get("android_client_info", {}).get("package_name") == expected_pkg
+          ]
+          if not matching:
+              print(f"::error::app/google-services.json ne contient aucun client pour {expected_pkg}", file=sys.stderr)
+              sys.exit(1)
+
+          has_web_oauth = any(
+              o.get("client_type") == 3 and bool(o.get("client_id"))
+              for c in matching
+              for o in c.get("oauth_client", [])
+          )
+          if not has_web_oauth:
+              print("::error::app/google-services.json ne contient pas de client OAuth Web (client_type: 3) requis pour default_web_client_id", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"google-services.json validé pour {expected_pkg} (client OAuth Web présent).")
+          PY
+          else
+            echo "::warning::app/google-services.json est absent. L'APK compilera, mais la connexion Google et Firebase nécessitent le secret GitHub GOOGLE_SERVICES_JSON_BASE64."
+          fi
+
           if [ -n "$RELEASE_KEYSTORE_BASE64" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ]; then
             echo "has_release_keystore=true" >> "$GITHUB_OUTPUT"
           else

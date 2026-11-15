@@ -74,6 +74,8 @@ import java.util.Locale
 private val VINTED_DOMAINS = listOf("vinted.fr", "vinted.be", "vinted.es", "vinted.it", "vinted.de")
 private val EBAY_DOMAINS = listOf("ebay.fr", "ebay.com", "ebay.co.uk", "ebay.de")
 private val VINTED_CONDITIONS = listOf("Tous", "Très bon état", "Bon état", "Neuf avec étiquette")
+private val VintedTeal = Color(0xFF09B1BA)
+private val EbayBlue = Color(0xFF0064D2)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -270,7 +272,6 @@ fun MarketplaceAccountsSheet(
             // -------------------------------------------------------------
             // VINTED ACCOUNT CARD
             // -------------------------------------------------------------
-            val vintedTeal = Color(0xFF09B1BA)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -279,7 +280,7 @@ fun MarketplaceAccountsSheet(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    if (vintedAccount.isConnected) vintedTeal.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    if (vintedAccount.isConnected) VintedTeal.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
                 )
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -291,14 +292,14 @@ fun MarketplaceAccountsSheet(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
-                                color = vintedTeal.copy(alpha = 0.15f),
+                                color = VintedTeal.copy(alpha = 0.15f),
                                 modifier = Modifier.size(34.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = Icons.Default.ShoppingBag,
                                         contentDescription = "Vinted",
-                                        tint = vintedTeal,
+                                        tint = VintedTeal,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -484,7 +485,7 @@ fun MarketplaceAccountsSheet(
                                     Toast.makeText(context, "Compte Vinted enregistré et branché !", Toast.LENGTH_SHORT).show()
                                 },
                                 shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = vintedTeal),
+                                colors = ButtonDefaults.buttonColors(containerColor = VintedTeal),
                                 modifier = Modifier.testTag("btn_save_vinted")
                             ) {
                                 Text("Brancher Vinted", fontSize = 12.sp, color = Color.White)
@@ -499,7 +500,6 @@ fun MarketplaceAccountsSheet(
             // -------------------------------------------------------------
             // EBAY ACCOUNT CARD
             // -------------------------------------------------------------
-            val ebayBlue = Color(0xFF0064D2)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -508,7 +508,7 @@ fun MarketplaceAccountsSheet(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    if (ebayAccount.isConnected) ebayBlue.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                    if (ebayAccount.isConnected) EbayBlue.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
                 )
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -520,14 +520,14 @@ fun MarketplaceAccountsSheet(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
-                                color = ebayBlue.copy(alpha = 0.15f),
+                                color = EbayBlue.copy(alpha = 0.15f),
                                 modifier = Modifier.size(34.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = Icons.Default.Store,
                                         contentDescription = "eBay",
-                                        tint = ebayBlue,
+                                        tint = EbayBlue,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -695,7 +695,7 @@ fun MarketplaceAccountsSheet(
                                     Toast.makeText(context, "Compte eBay enregistré et branché !", Toast.LENGTH_SHORT).show()
                                 },
                                 shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = ebayBlue),
+                                colors = ButtonDefaults.buttonColors(containerColor = EbayBlue),
                                 modifier = Modifier.testTag("btn_save_ebay")
                             ) {
                                 Text("Brancher eBay", fontSize = 12.sp, color = Color.White)

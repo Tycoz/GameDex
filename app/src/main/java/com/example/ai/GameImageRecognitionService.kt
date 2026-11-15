@@ -6,11 +6,11 @@ import android.util.Log
 import com.example.BuildConfig
 import com.example.data.model.GameCatalog
 import com.example.data.model.GameItem
+import com.example.data.network.NetworkClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
@@ -33,7 +33,7 @@ object GameImageRecognitionService {
     private const val MODEL_NAME = "gemini-3.5-flash"
     private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
-    private val client = OkHttpClient.Builder()
+    private val client = NetworkClient.baseClient.newBuilder()
         .connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
@@ -45,11 +45,11 @@ object GameImageRecognitionService {
     fun bitmapToBase64(bitmap: Bitmap): String {
         val maxDimension = 1024
         val scaled = if (bitmap.width > maxDimension || bitmap.height > maxDimension) {
-            val ratio = bitmap.width.toFloat() / bitmap.height.toFloat()
-            val (targetWidth, targetHeight) = if (ratio > 1) {
-                maxDimension to (maxDimension / ratio).toInt()
+            val ratio = bitmap.width.toFloat() / bitmap.height.toFloat().coerceAtLeast(1f)
+            val (targetWidth, targetHeight) = if (ratio > 1f) {
+                maxDimension to (maxDimension / ratio).toInt().coerceAtLeast(1)
             } else {
-                (maxDimension * ratio).toInt() to maxDimension
+                (maxDimension * ratio).toInt().coerceAtLeast(1) to maxDimension
             }
             bitmap.scale(targetWidth, targetHeight)
         } else {
@@ -57,9 +57,12 @@ object GameImageRecognitionService {
         }
 
         val outputStream = ByteArrayOutputStream()
-        scaled.compress(Bitmap.CompressFormat.JPEG, 85, outputStream)
-        if (scaled !== bitmap) {
-            scaled.recycle()
+        try {
+            scaled.compress(Bitmap.CompressFormat.JPEG, 85, outputStream)
+        } finally {
+            if (scaled !== bitmap) {
+                scaled.recycle()
+            }
         }
         return Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
     }
@@ -266,9 +269,15 @@ object GameImageRecognitionService {
         }
 
         // Save cropped cover to private internal storage for fast & persistent rendering
-        val localCoverUri = if (context != null) {
-            GameCoverStorage.saveCoverBitmap(context, croppedBitmap, title)
-        } else ""
+        val localCoverUri = try {
+            if (context != null) {
+                GameCoverStorage.saveCoverBitmap(context, croppedBitmap, title)
+            } else ""
+        } finally {
+            if (croppedBitmap !== originalBitmap) {
+                croppedBitmap.recycle()
+            }
+        }
 
         // Enrich with Master Catalog cover if matched and local cover is empty
         val catalogMatch = GameCatalog.sampleGames.find {

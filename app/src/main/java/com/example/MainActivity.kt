@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.credentials.CredentialManager
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.repository.GameRepository
 import com.example.ui.GameDexApp
 import com.example.ui.GameDexViewModel
@@ -51,25 +52,30 @@ fun AppNavigationRoot() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val credentialManager = remember { CredentialManager.create(context) }
-    var currentUser by remember { mutableStateOf(Firebase.auth.currentUser) }
+    val firebaseAuth = remember { runCatching { Firebase.auth }.getOrNull() }
+    var currentUser by remember { mutableStateOf(firebaseAuth?.currentUser) }
 
-    DisposableEffect(Unit) {
-        val listener = FirebaseAuth.AuthStateListener { auth ->
-            currentUser = auth.currentUser
-        }
-        Firebase.auth.addAuthStateListener(listener)
-        onDispose {
-            Firebase.auth.removeAuthStateListener(listener)
+    DisposableEffect(firebaseAuth) {
+        if (firebaseAuth == null) {
+            onDispose { }
+        } else {
+            val listener = FirebaseAuth.AuthStateListener { auth ->
+                currentUser = auth.currentUser
+            }
+            firebaseAuth.addAuthStateListener(listener)
+            onDispose {
+                firebaseAuth.removeAuthStateListener(listener)
+            }
         }
     }
 
     // Attempt silent auto-sign in on startup
-    LaunchedEffect(Unit) {
-        if (Firebase.auth.currentUser == null) {
+    LaunchedEffect(firebaseAuth) {
+        if (firebaseAuth != null && firebaseAuth.currentUser == null) {
             AuthManager.attemptAutoSignIn(
                 context = context,
                 credentialManager = credentialManager,
-                onAuthSuccess = { currentUser = Firebase.auth.currentUser },
+                onAuthSuccess = { currentUser = firebaseAuth.currentUser },
                 onUnauthenticated = { },
                 scope = this
             )
@@ -80,13 +86,16 @@ fun AppNavigationRoot() {
     if (user == null) {
         SignInScreen(
             onAuthSuccess = {
-                currentUser = Firebase.auth.currentUser
+                currentUser = firebaseAuth?.currentUser
             }
         )
     } else {
         val userUid = user.uid
         val repository = remember(userUid) { GameRepository(context.applicationContext) }
-        val viewModel = remember(userUid) { GameDexViewModel(repository) }
+        val viewModel: GameDexViewModel = viewModel(
+            key = "gamedex_$userUid",
+            factory = remember(userUid, repository) { GameDexViewModel.factory(repository) }
+        )
 
         GameDexApp(
             viewModel = viewModel,

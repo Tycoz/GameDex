@@ -5,10 +5,10 @@ import android.net.Uri
 import android.util.Log
 import android.util.Xml
 import com.example.data.model.GameItem
+import com.example.data.network.NetworkClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.xmlpull.v1.XmlPullParser
 import java.io.ByteArrayInputStream
@@ -32,7 +32,7 @@ object MultiFormatImportUtil {
 
     private const val TAG = "MultiFormatImport"
 
-    private val httpClient = OkHttpClient.Builder()
+    private val httpClient = NetworkClient.baseClient.newBuilder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .followRedirects(true)
@@ -142,11 +142,9 @@ object MultiFormatImportUtil {
      */
     suspend fun fetchAndParseGoogleSheet(sheetUrl: String): Result<CsvParseResult> = withContext(Dispatchers.IO) {
         try {
-            val exportUrlResult = extractGoogleSheetExportUrl(sheetUrl)
-            if (exportUrlResult.isFailure) {
-                return@withContext Result.failure(exportUrlResult.exceptionOrNull()!!)
+            val exportUrl = extractGoogleSheetExportUrl(sheetUrl).getOrElse { error ->
+                return@withContext Result.failure(error)
             }
-            val exportUrl = exportUrlResult.getOrThrow()
 
             val request = Request.Builder()
                 .url(exportUrl)
@@ -202,11 +200,10 @@ object MultiFormatImportUtil {
             }
         }
 
-        if (contentXml == null) {
-            return CsvParseResult(emptyList(), 0, 0, ',', fileName, listOf("Structure OpenDocument invalide (content.xml manquant)."))
-        }
+        val xml = contentXml
+            ?: return CsvParseResult(emptyList(), 0, 0, ',', fileName, listOf("Structure OpenDocument invalide (content.xml manquant)."))
 
-        val records = extractRowsFromOpenDocumentXml(contentXml!!)
+        val records = extractRowsFromOpenDocumentXml(xml)
         return CsvImportUtil.parseRecordsToResult(records, fileName, ',')
     }
 
@@ -584,14 +581,17 @@ object MultiFormatImportUtil {
     private fun getFileName(context: Context, uri: Uri): String? {
         var name: String? = null
         if (uri.scheme == "content") {
-            val cursor = context.contentResolver.query(uri, null, null, null, null)
-            cursor?.use {
-                if (it.moveToFirst()) {
-                    val index = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                    if (index >= 0) {
-                        name = it.getString(index)
+            try {
+                context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                        if (index >= 0) {
+                            name = cursor.getString(index)
+                        }
                     }
                 }
+            } catch (e: Exception) {
+                Log.w(TAG, "Unable to query display name for $uri", e)
             }
         }
         return name ?: uri.lastPathSegment

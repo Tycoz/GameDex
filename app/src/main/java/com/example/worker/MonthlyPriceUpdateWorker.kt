@@ -58,7 +58,8 @@ class MonthlyPriceUpdateWorker(
             return Result.success()
         }
 
-        if (Firebase.auth.currentUser == null) {
+        val currentUser = runCatching { Firebase.auth.currentUser }.getOrNull()
+        if (currentUser == null) {
             Log.d(TAG, "No authenticated user. Skipping monthly PriceCharting update.")
             return Result.success()
         }

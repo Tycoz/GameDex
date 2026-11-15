@@ -3,10 +3,10 @@ package com.example.data.marketplace
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.example.data.network.NetworkClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
@@ -42,7 +42,7 @@ class MarketplacePreferencesManager(context: Context) {
         private const val KEY_NOTIFICATIONS_ENABLED = "notifications_enabled"
         private const val KEY_LAST_GLOBAL_CHECK = "last_global_check"
 
-        private val httpClient = OkHttpClient.Builder()
+        private val httpClient = NetworkClient.baseClient.newBuilder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.SECONDS)
             .build()

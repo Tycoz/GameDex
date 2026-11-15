@@ -124,7 +124,7 @@ fun GameDexApp(
         }
     }
 
-    val currentUser = Firebase.auth.currentUser
+    val currentUser = remember { runCatching { Firebase.auth.currentUser }.getOrNull() }
     val userDisplayName = currentUser?.displayName ?: currentUser?.email ?: "Collectionneur"
     val userInitial = userDisplayName.firstOrNull()?.uppercase() ?: "G"
 

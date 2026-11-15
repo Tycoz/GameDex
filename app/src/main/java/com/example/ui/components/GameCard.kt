@@ -46,9 +46,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.data.model.GameItem
-import com.example.data.model.detectedDeal
-import com.example.data.model.isPriceAlertEnabled
-import com.example.data.model.maxTargetPrice
+import com.example.data.model.priceAlert
 import com.example.ui.theme.AmberGold
 import com.example.ui.theme.BrandPrimary
 import com.example.ui.theme.EmeraldMint
@@ -72,6 +70,7 @@ fun GameCard(
     val context = LocalContext.current
     val platformColor = remember(game.platform) { getPlatformColor(game.platform) }
     val completenessColor = remember(game.completeness) { getCompletenessColor(game.completeness) }
+    val stableId = remember(game.id, game.title) { game.id.ifBlank { game.title.hashCode().toString() } }
     val coverRequest = remember(context, game.coverUrl) {
         if (game.coverUrl.isNotBlank()) {
             ImageRequest.Builder(context)
@@ -79,6 +78,9 @@ fun GameCard(
                 .crossfade(true)
                 .build()
         } else null
+    }
+    val wishlistAlert = remember(game.isWishlist, game.notes) {
+        if (game.isWishlist) game.priceAlert else null
     }
 
     Card(
@@ -97,7 +99,7 @@ fun GameCard(
                     onSelectToggle()
                 }
             )
-            .testTag("game_card_${game.id.ifBlank { game.title.hashCode() }}"),
+            .testTag("game_card_$stableId"),
         shape = RoundedCornerShape(16.dp),
         border = if (isSelected) BorderStroke(2.dp, BrandPrimary) else null,
         colors = CardDefaults.cardColors(
@@ -193,7 +195,7 @@ fun GameCard(
                                 ),
                                 modifier = Modifier
                                     .size(28.dp)
-                                    .testTag("checkbox_game_${game.id.ifBlank { game.title.hashCode().toString() }}")
+                                    .testTag("checkbox_game_$stableId")
                             )
                         } else {
                             IconButton(
@@ -304,45 +306,47 @@ fun GameCard(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                         }
-                    } else if (game.isWishlist) {
-                        val deal = game.detectedDeal
+                    } else if (wishlistAlert != null) {
+                        val deal = wishlistAlert.deal
+                        val maxPrice = wishlistAlert.maxTargetPrice
+                        val alertActive = wishlistAlert.isEnabled && maxPrice > 0.0
                         if (deal != null) {
                             Column(horizontalAlignment = Alignment.End) {
                                 Surface(
-                                    color = Color(0xFF09B1BA).copy(alpha = 0.18f),
+                                    color = DealBadgeBgColor,
                                     shape = RoundedCornerShape(6.dp)
                                 ) {
                                     Text(
                                         text = "🔥 ${String.format(Locale.FRANCE, "%.2f", deal.price)} € (${deal.platform})",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.ExtraBold,
-                                        color = Color(0xFF0F766E),
+                                        color = DealBadgeTextColor,
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
                                 }
-                                if (game.maxTargetPrice > 0.0) {
+                                if (maxPrice > 0.0) {
                                     Text(
-                                        text = "Max: ${String.format(Locale.FRANCE, "%.2f", game.maxTargetPrice)} €",
+                                        text = "Max: ${String.format(Locale.FRANCE, "%.2f", maxPrice)} €",
                                         fontSize = 9.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
-                        } else if (game.maxTargetPrice > 0.0) {
+                        } else if (maxPrice > 0.0) {
                             Column(horizontalAlignment = Alignment.End) {
                                 Surface(
                                     color = AmberGold.copy(alpha = 0.15f),
                                     shape = RoundedCornerShape(6.dp)
                                 ) {
                                     Text(
-                                        text = "🎯 Max: ${String.format(Locale.FRANCE, "%.2f", game.maxTargetPrice)} €",
+                                        text = "🎯 Max: ${String.format(Locale.FRANCE, "%.2f", maxPrice)} €",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = AmberGold,
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
                                 }
-                                if (game.isPriceAlertEnabled) {
+                                if (alertActive) {
                                     Text(
                                         text = "Alerte active",
                                         fontSize = 9.sp,
@@ -372,21 +376,37 @@ fun GameCard(
     }
 }
 
+private val DealBadgeBgColor = Color(0xFF09B1BA).copy(alpha = 0.18f)
+private val DealBadgeTextColor = Color(0xFF0F766E)
+
+private val NintendoColor = Color(0xFFE52521)
+private val PlayStationColor = Color(0xFF003791)
+private val XboxColor = Color(0xFF107C10)
+private val SegaColor = Color(0xFF0089CF)
+private val AtariColor = Color(0xFFE04030)
+private val NeoGeoColor = Color(0xFFD97706)
+private val PcEngineColor = Color(0xFF0D9488)
+private val AmigaColor = Color(0xFF7C3AED)
+private val GameBoyColor = Color(0xFF8B5CF6)
+private val RetroOtherColor = Color(0xFFB45309)
+private val SteamDeckColor = Color(0xFF1E293B)
+private val PcColor = Color(0xFFF97316)
+
 fun getPlatformColor(platform: String): Color {
     val lower = platform.lowercase()
     return when {
-        lower.contains("nintendo") || lower.contains("nes") || lower.contains("snes") || lower.contains("switch") || lower.contains("mario") || lower.contains("famicom") -> Color(0xFFE52521)
-        lower.contains("playstation") || lower.contains("ps1") || lower.contains("ps2") || lower.contains("ps3") || lower.contains("ps4") || lower.contains("ps5") || lower.contains("psp") || lower.contains("vita") -> Color(0xFF003791)
-        lower.contains("xbox") -> Color(0xFF107C10)
-        lower.contains("sega") || lower.contains("mega drive") || lower.contains("dreamcast") || lower.contains("saturn") || lower.contains("game gear") || lower.contains("master system") -> Color(0xFF0089CF)
-        lower.contains("atari") || lower.contains("lynx") || lower.contains("jaguar") -> Color(0xFFE04030)
-        lower.contains("neo-geo") || lower.contains("snk") -> Color(0xFFD97706)
-        lower.contains("pc-engine") || lower.contains("nec") || lower.contains("turbografx") || lower.contains("pc-fx") -> Color(0xFF0D9488)
-        lower.contains("amiga") || lower.contains("commodore") -> Color(0xFF7C3AED)
-        lower.contains("game boy") -> Color(0xFF8B5CF6)
-        lower.contains("vectrex") || lower.contains("coleco") || lower.contains("intellivision") || lower.contains("odyssey") || lower.contains("videopac") || lower.contains("cd-i") -> Color(0xFFB45309)
-        lower.contains("steam deck") -> Color(0xFF1E293B)
-        lower.contains("pc") -> Color(0xFFF97316)
+        lower.contains("nintendo") || lower.contains("nes") || lower.contains("snes") || lower.contains("switch") || lower.contains("mario") || lower.contains("famicom") -> NintendoColor
+        lower.contains("playstation") || lower.contains("ps1") || lower.contains("ps2") || lower.contains("ps3") || lower.contains("ps4") || lower.contains("ps5") || lower.contains("psp") || lower.contains("vita") -> PlayStationColor
+        lower.contains("xbox") -> XboxColor
+        lower.contains("sega") || lower.contains("mega drive") || lower.contains("dreamcast") || lower.contains("saturn") || lower.contains("game gear") || lower.contains("master system") -> SegaColor
+        lower.contains("atari") || lower.contains("lynx") || lower.contains("jaguar") -> AtariColor
+        lower.contains("neo-geo") || lower.contains("snk") -> NeoGeoColor
+        lower.contains("pc-engine") || lower.contains("nec") || lower.contains("turbografx") || lower.contains("pc-fx") -> PcEngineColor
+        lower.contains("amiga") || lower.contains("commodore") -> AmigaColor
+        lower.contains("game boy") -> GameBoyColor
+        lower.contains("vectrex") || lower.contains("coleco") || lower.contains("intellivision") || lower.contains("odyssey") || lower.contains("videopac") || lower.contains("cd-i") -> RetroOtherColor
+        lower.contains("steam deck") -> SteamDeckColor
+        lower.contains("pc") -> PcColor
         else -> BrandPrimary
     }
 }

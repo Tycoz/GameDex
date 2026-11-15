@@ -108,10 +108,18 @@ object PriceAlertSerializer {
     fun applyToNotes(existingNotes: String, alert: PriceAlert): String {
         val clean = stripConfigFromNotes(existingNotes)
         val serialized = serialize(alert)
-        return when {
-            serialized.isBlank() -> clean
-            clean.isBlank() -> serialized
-            else -> "$clean\n$serialized"
+        if (serialized.isBlank()) {
+            return clean.take(GameItem.MAX_NOTES_LENGTH)
+        }
+        if (clean.isBlank()) {
+            return serialized.take(GameItem.MAX_NOTES_LENGTH)
+        }
+        val availableCleanLength = (GameItem.MAX_NOTES_LENGTH - serialized.length - 1).coerceAtLeast(0)
+        val boundedClean = clean.take(availableCleanLength).trimEnd()
+        return if (boundedClean.isBlank()) {
+            serialized.take(GameItem.MAX_NOTES_LENGTH)
+        } else {
+            "$boundedClean\n$serialized"
         }
     }
 }

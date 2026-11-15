@@ -27,10 +27,8 @@ class GameRepository(private val db: FirebaseFirestore) {
         )
     )
 
-    private val auth = Firebase.auth
-
     private fun requireUserId(): String {
-        return auth.currentUser?.uid
+        return runCatching { Firebase.auth.currentUser?.uid }.getOrNull()
             ?: throw IllegalStateException("L'utilisateur doit être connecté avec Google pour accéder à la collection.")
     }
 

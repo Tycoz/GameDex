@@ -4,11 +4,11 @@ import android.util.Log
 import com.example.BuildConfig
 import com.example.data.model.ConsoleCatalog
 import com.example.data.model.GameCatalog
+import com.example.data.network.NetworkClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
@@ -45,7 +45,7 @@ object GameScraperService {
     private const val GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
     private const val WIKIPEDIA_USER_AGENT = "GameDexApp/1.0 (Android; +https://github.com/aistudio/gamedex; contact: info@gamedex.app)"
 
-    private val httpClient = OkHttpClient.Builder()
+    private val httpClient = NetworkClient.baseClient.newBuilder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
         .build()
@@ -127,8 +127,9 @@ object GameScraperService {
             if (geminiKey.isNotBlank() && geminiKey != "MY_GEMINI_API_KEY") {
                 val aiResult = scrapeWithGemini(trimmedQuery, platformHint, wikiData?.description, geminiKey)
                 if (aiResult != null) {
-                    val finalCover = if (!wikiData?.coverUrl.isNullOrBlank()) {
-                        wikiData!!.coverUrl
+                    val wikiCover = wikiData?.coverUrl
+                    val finalCover = if (!wikiCover.isNullOrBlank()) {
+                        wikiCover
                     } else if (aiResult.coverUrl.isNotBlank() && (aiResult.coverUrl.startsWith("http://") || aiResult.coverUrl.startsWith("https://"))) {
                         sanitizeCoverUrl(aiResult.coverUrl)
                     } else {

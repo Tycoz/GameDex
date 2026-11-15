@@ -122,9 +122,12 @@ Une fois le code poussé sur votre dépôt GitHub et le workflow exécuté :
 
 ### Secrets GitHub optionnels
 
-Le workflow fonctionne immédiatement sans configuration supplémentaire pour générer `GameDex.apk` (le keystore de debug est décodé automatiquement depuis `debug.keystore.base64`). Vous pouvez toutefois ajouter ces secrets dans **Settings → Secrets and variables → Actions** :
+Le workflow génère `GameDex.apk` sans configuration bloquante (le keystore de debug est décodé automatiquement depuis `debug.keystore.base64`). Pour activer l'ensemble des fonctionnalités dans l'APK compilé sur GitHub, ajoutez ces secrets dans **Settings → Secrets and variables → Actions** :
 
+- `GOOGLE_SERVICES_JSON_BASE64` *(recommandé pour Google Sign-In & Firebase)* : contenu encodé en Base64 de `app/google-services.json` (doit correspondre au package `com.aistudio.gamedex.vzqpw` et inclure le client OAuth Web `client_type: 3`).
+  - Linux : `base64 -w 0 app/google-services.json`
+  - macOS : `base64 -i app/google-services.json | tr -d '\n'`
+  - Windows (PowerShell) : `[Convert]::ToBase64String([IO.File]::ReadAllBytes("app\google-services.json"))`
 - `GEMINI_API_KEY` : clé API injectée dans `.env` lors du build CI.
-- `GOOGLE_SERVICES_JSON_BASE64` : version encodée en Base64 de `app/google-services.json` (si vous choisissez de ne pas versionner ce fichier).
 - `RELEASE_KEYSTORE_BASE64`, `STORE_PASSWORD`, `KEY_PASSWORD` : si tous trois sont définis, le workflow génère et publie en plus un APK signé en mode release (`GameDex-release.apk`).
 

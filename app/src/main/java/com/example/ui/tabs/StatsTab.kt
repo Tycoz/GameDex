@@ -109,7 +109,7 @@ fun StatsTab(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Section: Global Financial Dashboard
-        item {
+        item(key = "financial") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -206,7 +206,7 @@ fun StatsTab(
         }
 
         // Section: PriceCharting Monthly Valuation Update
-        item {
+        item(key = "pricecharting") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -335,7 +335,7 @@ fun StatsTab(
         }
 
         // Section: Overview Cards (Collection vs Wishlist)
-        item {
+        item(key = "overview") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -377,7 +377,7 @@ fun StatsTab(
         }
 
         // Section: Platform Distribution
-        item {
+        item(key = "platforms") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -426,7 +426,7 @@ fun StatsTab(
         }
 
         // Section: Completeness Breakdown (CIB vs Loose vs Sealed)
-        item {
+        item(key = "completeness") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -479,7 +479,7 @@ fun StatsTab(
         }
 
         // Section: Top 5 Most Valuable Games
-        item {
+        item(key = "top_valuable") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),

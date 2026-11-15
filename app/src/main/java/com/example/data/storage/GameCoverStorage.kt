@@ -2,6 +2,7 @@ package com.example.data.storage
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.core.net.toUri
 import java.io.File
@@ -18,6 +19,8 @@ object GameCoverStorage {
 
     private const val TAG = "GameCoverStorage"
     private const val COVERS_DIR = "game_covers"
+    private const val MAX_DECODE_SIDE = 1600
+    private val SANITIZE_TITLE_REGEX = Regex("[^a-z0-9]")
 
     /**
      * Saves a cropped cover Bitmap to private internal storage.
@@ -32,7 +35,7 @@ object GameCoverStorage {
 
             val sanitizedTitle = title.trim()
                 .lowercase()
-                .replace(Regex("[^a-z0-9]"), "_")
+                .replace(SANITIZE_TITLE_REGEX, "_")
                 .take(16)
                 .ifBlank { "game" }
 
@@ -70,23 +73,45 @@ object GameCoverStorage {
     }
 
     /**
-     * Loads a Bitmap from a local file:// or content:// URI.
+     * Loads a memory-bounded Bitmap (max 1600px on longest side) from a local file:// or content:// URI.
      */
     fun loadBitmapFromCoverUrl(context: Context, coverUrl: String): Bitmap? {
         return try {
-            if (coverUrl.startsWith("file://")) {
-                val path = coverUrl.removePrefix("file://")
-                android.graphics.BitmapFactory.decodeFile(path)
-            } else if (coverUrl.startsWith("content://")) {
-                context.contentResolver.openInputStream(coverUrl.toUri())?.use { input ->
-                    android.graphics.BitmapFactory.decodeStream(input)
+            when {
+                coverUrl.startsWith("file://") -> {
+                    val path = coverUrl.removePrefix("file://")
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeFile(path, bounds)
+                    val sampleSize = computeInSampleSize(bounds.outWidth, bounds.outHeight, MAX_DECODE_SIDE)
+                    val opts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+                    BitmapFactory.decodeFile(path, opts)
                 }
-            } else {
-                null
+                coverUrl.startsWith("content://") -> {
+                    val uri = coverUrl.toUri()
+                    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        BitmapFactory.decodeStream(input, null, bounds)
+                    }
+                    val sampleSize = computeInSampleSize(bounds.outWidth, bounds.outHeight, MAX_DECODE_SIDE)
+                    val opts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        BitmapFactory.decodeStream(input, null, opts)
+                    }
+                }
+                else -> null
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load bitmap from coverUrl: $coverUrl", e)
             null
         }
+    }
+
+    private fun computeInSampleSize(width: Int, height: Int, maxSide: Int): Int {
+        if (width <= 0 || height <= 0) return 1
+        var sampleSize = 1
+        while (width / sampleSize > maxSide || height / sampleSize > maxSide) {
+            sampleSize *= 2
+        }
+        return sampleSize
     }
 }

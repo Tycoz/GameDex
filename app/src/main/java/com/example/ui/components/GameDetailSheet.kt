@@ -42,9 +42,7 @@ import android.content.Intent
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.OpenInBrowser
 import com.example.data.model.cleanNotes
-import com.example.data.model.detectedDeal
-import com.example.data.model.isPriceAlertEnabled
-import com.example.data.model.maxTargetPrice
+import com.example.data.model.priceAlert
 import java.util.Locale
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -104,6 +102,17 @@ fun GameDetailSheet(
                 .build()
         } else null
     }
+    val subtitleMeta = remember(game.publisher, game.releaseYear, game.region) {
+        listOfNotNull(
+            game.publisher.ifBlank { null },
+            if (game.releaseYear > 0) game.releaseYear.toString() else null,
+            game.region.ifBlank { null }
+        ).joinToString(" • ")
+    }
+    val parsedAlert = remember(game.isWishlist, game.notes) {
+        if (game.isWishlist) game.priceAlert else null
+    }
+    val cleanNotesText = remember(game.notes) { game.cleanNotes }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -239,11 +248,7 @@ fun GameDetailSheet(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = listOfNotNull(
-                            game.publisher.ifBlank { null },
-                            if (game.releaseYear > 0) game.releaseYear.toString() else null,
-                            game.region.ifBlank { null }
-                        ).joinToString(" • "),
+                        text = subtitleMeta,
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -483,7 +488,11 @@ fun GameDetailSheet(
                 }
             }
 
-            if (game.isWishlist) {
+            if (parsedAlert != null) {
+                val maxTarget = parsedAlert.maxTargetPrice
+                val alertEnabled = parsedAlert.isEnabled && maxTarget > 0.0
+                val deal = parsedAlert.deal
+
                 Spacer(modifier = Modifier.height(14.dp))
                 Card(
                     modifier = Modifier
@@ -515,21 +524,21 @@ fun GameDetailSheet(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = if (game.isPriceAlertEnabled) "Alerte active • Vérification 1x par jour" else "Surveillance désactivée",
+                                        text = if (alertEnabled) "Alerte active • Vérification 1x par jour" else "Surveillance désactivée",
                                         fontSize = 11.sp,
-                                        color = if (game.isPriceAlertEnabled) EmeraldMint else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontWeight = if (game.isPriceAlertEnabled) FontWeight.SemiBold else FontWeight.Normal
+                                        color = if (alertEnabled) EmeraldMint else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = if (alertEnabled) FontWeight.SemiBold else FontWeight.Normal
                                     )
                                 }
                             }
 
-                            if (game.maxTargetPrice > 0.0) {
+                            if (maxTarget > 0.0) {
                                 Surface(
                                     color = AmberGold.copy(alpha = 0.2f),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text(
-                                        text = "🎯 Max : ${String.format(Locale.FRANCE, "%.2f", game.maxTargetPrice)} €",
+                                        text = "🎯 Max : ${String.format(Locale.FRANCE, "%.2f", maxTarget)} €",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = AmberGold,
@@ -539,7 +548,6 @@ fun GameDetailSheet(
                             }
                         }
 
-                        val deal = game.detectedDeal
                         if (deal != null) {
                             Spacer(modifier = Modifier.height(10.dp))
                             Card(
@@ -566,9 +574,9 @@ fun GameDetailSheet(
                                             color = Color(0xFF0F766E)
                                         )
                                     }
-                                    if (game.maxTargetPrice > 0.0 && game.maxTargetPrice > deal.price) {
+                                    if (maxTarget > 0.0 && maxTarget > deal.price) {
                                         Text(
-                                            text = "Économie de ${String.format(Locale.FRANCE, "%.2f", game.maxTargetPrice - deal.price)} € par rapport à votre prix max !",
+                                            text = "Économie de ${String.format(Locale.FRANCE, "%.2f", maxTarget - deal.price)} € par rapport à votre prix max !",
                                             fontSize = 11.sp,
                                             color = Color(0xFF115E59)
                                         )
@@ -608,7 +616,7 @@ fun GameDetailSheet(
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(
-                                text = if (game.maxTargetPrice > 0.0) "Modifier le prix max ou l'alerte" else "Fixer un prix max d'achat",
+                                text = if (maxTarget > 0.0) "Modifier le prix max ou l'alerte" else "Fixer un prix max d'achat",
                                 fontSize = 12.sp
                             )
                         }
@@ -633,7 +641,6 @@ fun GameDetailSheet(
                 )
             }
 
-            val cleanNotesText = game.cleanNotes
             if (cleanNotesText.isNotBlank()) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(

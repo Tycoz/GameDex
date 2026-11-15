@@ -114,6 +114,7 @@ fun ImportCollectionSheet(
     val coroutineScope = rememberCoroutineScope()
 
     var isLoadingFile by remember { mutableStateOf(false) }
+    var isParsingPastedText by remember { mutableStateOf(false) }
     var destinationMode by remember { mutableStateOf(ImportDestinationMode.ORIGINAL) }
     var skipExistingDuplicates by remember { mutableStateOf(true) }
 
@@ -252,7 +253,8 @@ fun ImportCollectionSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (parseResult == null || parseResult?.games.isNullOrEmpty()) {
+            val activeResult = parseResult
+            if (activeResult == null || activeResult.games.isEmpty()) {
                 // STEP 1: Choose File or Paste CSV Text
                 Text(
                     text = "Sélectionnez votre source de données",
@@ -618,25 +620,35 @@ fun ImportCollectionSheet(
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
                             onClick = {
-                                if (pastedCsvText.isNotBlank()) {
-                                    val result = CsvImportUtil.parseCsvString(pastedCsvText)
-                                    parseResult = result
-                                    if (result.games.isEmpty()) {
-                                        val err = result.errorMessages.firstOrNull() ?: "Aucun jeu détecté."
-                                        lastErrorMessage = err
-                                        Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        lastErrorMessage = null
+                                if (pastedCsvText.isNotBlank() && !isParsingPastedText) {
+                                    isParsingPastedText = true
+                                    val textToParse = pastedCsvText
+                                    coroutineScope.launch {
+                                        try {
+                                            val result = withContext(Dispatchers.IO) {
+                                                CsvImportUtil.parseCsvString(textToParse)
+                                            }
+                                            parseResult = result
+                                            if (result.games.isEmpty()) {
+                                                val err = result.errorMessages.firstOrNull() ?: "Aucun jeu détecté."
+                                                lastErrorMessage = err
+                                                Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                lastErrorMessage = null
+                                            }
+                                        } finally {
+                                            isParsingPastedText = false
+                                        }
                                     }
                                 }
                             },
-                            enabled = pastedCsvText.isNotBlank(),
+                            enabled = pastedCsvText.isNotBlank() && !isParsingPastedText,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("import_parse_pasted_button"),
                             colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
                         ) {
-                            Text("Analyser le texte CSV")
+                            Text(if (isParsingPastedText) "Analyse..." else "Analyser le texte CSV")
                         }
                     }
                 }
@@ -644,7 +656,7 @@ fun ImportCollectionSheet(
                 Spacer(modifier = Modifier.height(24.dp))
             } else {
                 // STEP 2: Preview & Configuration
-                val result = parseResult!!
+                val result = activeResult
 
                 // Summary banner
                 Card(
@@ -712,7 +724,9 @@ fun ImportCollectionSheet(
                             )
                         }
 
-                        val totalEstimatedBatch = finalGamesToImport.sumOf { it.estimatedValue }
+                        val totalEstimatedBatch = remember(finalGamesToImport) {
+                            finalGamesToImport.sumOf { it.estimatedValue }
+                        }
                         if (totalEstimatedBatch > 0.0) {
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
@@ -794,6 +808,17 @@ fun ImportCollectionSheet(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                val duplicateFlags = remember(result, existingKeys) {
+                    result.games.map { game ->
+                        existingKeys.contains("${game.title.trim().lowercase()}_${game.platform.trim().lowercase()}")
+                    }
+                }
+                val allPreviewSelected by remember(result, selectionMap) {
+                    derivedStateOf {
+                        result.games.indices.all { selectionMap[it] ?: true }
+                    }
+                }
+
                 // Games Preview List
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -806,14 +831,14 @@ fun ImportCollectionSheet(
                         fontSize = 13.sp
                     )
                     Text(
-                        text = if (selectionMap.values.all { it }) "Tout désélectionner" else "Tout sélectionner",
+                        text = if (allPreviewSelected) "Tout désélectionner" else "Tout sélectionner",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = BrandPrimary,
                         modifier = Modifier
                             .clickable {
-                                val allSelected = selectionMap.values.all { it }
-                                result.games.indices.forEach { selectionMap[it] = !allSelected }
+                                val nextSelected = !allPreviewSelected
+                                result.games.indices.forEach { selectionMap[it] = nextSelected }
                             }
                             .padding(4.dp)
                     )
@@ -826,10 +851,13 @@ fun ImportCollectionSheet(
                         .fillMaxWidth()
                         .heightIn(max = 240.dp)
                 ) {
-                    items(result.games.indices.toList()) { index ->
+                    items(
+                        count = result.games.size,
+                        key = { index -> "${index}_${result.games[index].title}_${result.games[index].platform}" }
+                    ) { index ->
                         val game = result.games[index]
                         val isSelected = selectionMap[index] ?: true
-                        val isDuplicate = existingKeys.contains("${game.title.trim().lowercase()}_${game.platform.trim().lowercase()}")
+                        val isDuplicate = duplicateFlags[index]
 
                         Card(
                             shape = RoundedCornerShape(10.dp),
